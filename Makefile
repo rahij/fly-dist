@@ -9,3 +9,5 @@ unique: build
 
 broadcast: build
 	./maelstrom/maelstrom test -w broadcast --bin ./target/debug/echo --node-count 1 --time-limit 20 --rate 10
+
+all: echo unique broadcast

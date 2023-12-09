@@ -1,16 +1,16 @@
-/// ```bash
-/// $ cargo build
-/// $ maelstrom test -w echo --bin ./target/debug/echo --node-count 1 --time-limit 10 --log-stderr
-/// ````
 use async_trait::async_trait;
-use maelstrom::protocol::{Message, MessageBody};
+use maelstrom::protocol::Message;
 use maelstrom::{done, Node, Result, Runtime};
-use serde_json::{json, Map};
-use std::collections::HashSet;
+use serde::{Deserialize, Serialize};
+use std::collections::{HashMap, HashSet};
+
 use std::sync::{Arc, Mutex};
 use uuid::Uuid;
 
 pub(crate) fn main() -> Result<()> {
+    // let data = r#"{"echo":"Please echo 13","type":"echo","msg_id":1}"#;
+    // let body: RequestBody = serde_json::from_str(data)?;
+    // println!("{:?}", body);
     Runtime::init(try_main())
 }
 
@@ -22,12 +22,14 @@ async fn try_main() -> Result<()> {
 #[derive(Clone, Default)]
 struct Handler {
     message_ids: Arc<Mutex<HashSet<u64>>>,
+    neighbors: Arc<Mutex<Vec<String>>>,
 }
 
 impl Handler {
     fn new() -> Handler {
         return Handler {
             message_ids: Arc::new(Mutex::new(HashSet::new())),
+            neighbors: Arc::new(Mutex::new(Vec::new())),
         };
     }
 
@@ -36,6 +38,10 @@ impl Handler {
             .lock()
             .unwrap()
             .insert(message_id);
+    }
+
+    fn set_neighbors(&self, node_ids: &mut Vec<String>) {
+        Arc::clone(&self.neighbors).lock().unwrap().append(node_ids);
     }
 
     fn retreieve_messages(&self) -> Result<Vec<u64>> {
@@ -51,48 +57,70 @@ impl Handler {
 #[async_trait]
 impl Node for Handler {
     async fn process(&self, runtime: Runtime, req: Message) -> Result<()> {
-        if req.get_type() == "echo" {
-            let reply = req.body.clone().with_type("echo_ok");
-            return runtime.reply(req, reply).await;
+        eprintln!("{:?}", req.body);
+        let body: RequestBody = req.body.as_obj()?;
+        let msg_id = req.body.msg_id;
+        match body {
+            RequestBody::Init {} => done(runtime, req),
+            RequestBody::Echo { echo } => {
+                runtime
+                    .reply(req, ResponseBody::EchoOk { echo, msg_id })
+                    .await
+            }
+            RequestBody::Generate {} => {
+                runtime
+                    .reply(
+                        req,
+                        ResponseBody::GenerateOk {
+                            id: Uuid::new_v4().to_string(),
+                        },
+                    )
+                    .await
+            }
+            RequestBody::Broadcast { message } => {
+                self.store_message(message);
+                runtime.reply_ok(req).await
+            }
+            RequestBody::Topology { topology } => {
+                let mut neighbors = topology.get(runtime.node_id()).unwrap().clone();
+                self.set_neighbors(&mut neighbors);
+                runtime.reply_ok(req).await
+            }
+            RequestBody::Read {} => {
+                runtime
+                    .reply(
+                        req,
+                        ResponseBody::ReadOk {
+                            messages: self.retreieve_messages()?,
+                        },
+                    )
+                    .await
+            }
         }
-        if req.get_type() == "generate" {
-            let reply = req.body.clone().with_type("generate_ok");
-            let mut extra = Map::new();
-            extra.insert("id".to_string(), json!(Uuid::new_v4().to_string()));
-            return runtime.reply(req, MessageBody { extra, ..reply }).await;
-        }
-        if req.get_type() == "broadcast" {
-            let reply = req.body.clone().with_type("broadcast_ok");
-            self.store_message(reply.extra.get("message").unwrap().as_u64().unwrap());
-            return runtime
-                .reply(
-                    req,
-                    MessageBody {
-                        extra: Map::new(),
-                        ..reply
-                    },
-                )
-                .await;
-        }
-        if req.get_type() == "read" {
-            let reply = req.body.clone().with_type("read_ok");
-            let mut extra = Map::new();
-            extra.insert("messages".to_string(), self.retreieve_messages()?.into());
-            return runtime.reply(req, MessageBody { extra, ..reply }).await;
-        }
-        if req.get_type() == "topology" {
-            let reply = req.body.clone().with_type("topology_ok");
-            return runtime
-                .reply(
-                    req,
-                    MessageBody {
-                        extra: Map::new(),
-                        ..reply
-                    },
-                )
-                .await;
-        }
-
-        done(runtime, req)
     }
+}
+
+#[derive(Deserialize, Debug)]
+#[serde(rename_all = "snake_case", tag = "type")]
+enum RequestBody {
+    Init {},
+    Echo {
+        echo: String,
+    },
+    Generate {},
+    Broadcast {
+        message: u64,
+    },
+    Topology {
+        topology: HashMap<String, Vec<String>>,
+    },
+    Read {},
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "snake_case", tag = "type")]
+enum ResponseBody {
+    EchoOk { echo: String, msg_id: u64 },
+    GenerateOk { id: String },
+    ReadOk { messages: Vec<u64> },
 }
