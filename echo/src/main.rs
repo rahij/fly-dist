@@ -33,15 +33,19 @@ impl Handler {
         };
     }
 
-    fn store_message(&self, message_id: u64) {
+    fn store_message(&self, message_id: u64) -> bool {
         Arc::clone(&self.message_ids)
             .lock()
             .unwrap()
-            .insert(message_id);
+            .insert(message_id)
     }
 
     fn set_neighbors(&self, node_ids: &mut Vec<String>) {
         Arc::clone(&self.neighbors).lock().unwrap().append(node_ids);
+    }
+
+    fn get_neighbors(&self) -> Vec<String> {
+        Arc::clone(&self.neighbors).lock().unwrap().to_vec()
     }
 
     fn retreieve_messages(&self) -> Result<Vec<u64>> {
@@ -78,7 +82,14 @@ impl Node for Handler {
                     .await
             }
             RequestBody::Broadcast { message } => {
-                self.store_message(message);
+                if self.store_message(message) {
+                    for node in self.get_neighbors().into_iter() {
+                        if node != runtime.node_id() {
+                            runtime.call_async(node, RequestBody::Broadcast { message });
+                        }
+                    }
+                }
+
                 runtime.reply_ok(req).await
             }
             RequestBody::Topology { topology } => {
@@ -100,7 +111,7 @@ impl Node for Handler {
     }
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "snake_case", tag = "type")]
 enum RequestBody {
     Init {},
