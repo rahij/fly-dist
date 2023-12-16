@@ -92,21 +92,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "baf1de4339761588bc0619e3cbc0120ee582ebb74b53b4efbf79117bd2da40fd"
 
 [[package]]
-name = "echo"
-version = "0.1.0"
-dependencies = [
- "async-trait",
- "env_logger",
- "log",
- "maelstrom-node",
- "serde",
- "serde_json",
- "tokio",
- "tokio-context",
- "uuid",
-]
-
-[[package]]
 name = "env_logger"
 version = "0.10.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -127,6 +112,21 @@ checksum = "a258e46cdc063eb8519c00b9fc845fc47bcfca4130e2f08e88665ceda8474245"
 dependencies = [
  "libc",
  "windows-sys 0.52.0",
+]
+
+[[package]]
+name = "fly"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "env_logger",
+ "log",
+ "maelstrom-node",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tokio-context",
+ "uuid",
 ]
 
 [[package]]
@@ -263,6 +263,21 @@ name = "itoa"
 version = "1.0.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b1a46d1a171d865aa5f83f92695765caa047a9b4cbae2cbf37dbd613a793fd4c"
+
+[[package]]
+name = "kafka"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "env_logger",
+ "log",
+ "maelstrom-node",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tokio-context",
+ "uuid",
+]
 
 [[package]]
 name = "libc"
