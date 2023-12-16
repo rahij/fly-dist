@@ -34,27 +34,24 @@ impl Handler {
     }
 
     fn store_message(&self, message_id: u64) -> bool {
-        Arc::clone(&self.message_ids)
-            .lock()
-            .unwrap()
-            .insert(message_id)
+        self.message_ids.lock().unwrap().insert(message_id)
     }
 
     fn set_neighbors(&self, node_ids: &mut Vec<String>) {
-        Arc::clone(&self.neighbors).lock().unwrap().append(node_ids);
+        self.neighbors.lock().unwrap().append(node_ids);
     }
 
     fn get_neighbors(&self) -> Vec<String> {
         Arc::clone(&self.neighbors).lock().unwrap().to_vec()
     }
 
-    fn retreieve_messages(&self) -> Result<Vec<u64>> {
-        Ok(Arc::clone(&self.message_ids)
+    fn retreieve_messages(&self) -> Vec<u64> {
+        Arc::clone(&self.message_ids)
             .lock()
             .unwrap()
             .clone()
             .into_iter()
-            .collect())
+            .collect()
     }
 }
 
@@ -102,7 +99,7 @@ impl Node for Handler {
                     .reply(
                         req,
                         ResponseBody::ReadOk {
-                            messages: self.retreieve_messages()?,
+                            messages: self.retreieve_messages(),
                         },
                     )
                     .await
