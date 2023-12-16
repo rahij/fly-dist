@@ -81,7 +81,7 @@ impl Node for Handler {
             RequestBody::Broadcast { message } => {
                 if self.store_message(message) {
                     for node in self.get_neighbors().into_iter() {
-                        if node != runtime.node_id() {
+                        if node != req.src {
                             runtime.call_async(node, RequestBody::Broadcast { message });
                         }
                     }
